@@ -1,0 +1,84 @@
+Esp32 Code
+#define BLYNK_TEMPLATE_ID "TMPL29MSDP0lG"
+#define BLYNK_TEMPLATE_NAME "ESP 32"
+#define BLYNK_AUTH_TOKEN ""
+#define BLYNK_PRINT Serial
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
+#include <BlynkSimpleEsp32.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+// Blynk authentication
+char auth[] = "";
+BlynkTimer timer;
+// WiFi credentials
+char ssid[] = "";
+char pass[] = "";
+// LCD setup
+#define lcdColumns 20 // Adjusted to fit a standard 16x2 or 20x4 LCD
+#define lcdRows 4
+LiquidCrystal_I2C lcd(0x27, lcdColumns, lcdRows);
+// Ultrasonic sensor pins
+#define echoPin 2
+#define trigPin 4
+#define VPIN_ULTRASONIC V7
+// Relay pin
+#define relayPin 5
+long duration, distance;
+void setup() {
+Serial.begin(9600);
+// Initialize the LCD
+lcd.init();
+lcd.backlight();
+lcd.setCursor(0, 0);
+lcd.print("Smart water metering");
+// Initialize Blynk
+Blynk.begin(auth, ssid, pass, "blynk.cloud", 80);
+// Initialize ultrasonic sensor pins
+pinMode(trigPin, OUTPUT);
+pinMode(echoPin, INPUT);
+// Initialize relay pin
+pinMode(relayPin, OUTPUT);
+digitalWrite(relayPin, LOW); // Ensure relay is off initially
+// Setup timer to call water level function periodically
+timer.setInterval(1000L, waterlevel); // 1 second interval
+}
+void waterlevel() {
+// Trigger the ultrasonic sensor
+digitalWrite(trigPin, LOW);
+delayMicroseconds(2);
+digitalWrite(trigPin, HIGH);
+delayMicroseconds(10);
+digitalWrite(trigPin, LOW);
+// Read the echo pin and calculate distance
+duration = pulseIn(echoPin, HIGH);
+distance = duration / 58.2;
+// Convert distance to string
+String disp = String(distance);
+// Print distance to Serial monitor
+Serial.print("Distance: ");
+Serial.print(disp);
+Serial.println(" cm");
+// Send distance to Blynk
+Blynk.virtualWrite(VPIN_ULTRASONIC, distance);
+// Update the LCD
+lcd.clear();
+lcd.setCursor(0, 0);
+lcd.print("Distance:");
+lcd.setCursor(0, 1);
+lcd.print(disp + " cm");
+// Check distance and control relay
+if (distance <= 2) {
+// Turn off the motor
+digitalWrite(relayPin, HIGH); // Assuming HIGH turns off the relay
+Serial.println("Motor stopped - Water level too high!");
+} else {
+// Turn on the motor
+digitalWrite(relayPin, LOW); // Assuming LOW turns on the relay
+Serial.println("Motor running");
+}
+}
+void loop() {
+Blynk.run();
+timer.run();
+}
